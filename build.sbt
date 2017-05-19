@@ -1,9 +1,6 @@
 import com.typesafe.sbt.pgp.PgpKeys
 import scala.xml.Elem
 import scala.xml.transform.{RewriteRule, RuleTransformer}
-import com.typesafe.sbt.SbtScalariform
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
-import scalariform.formatter.preferences._
 
 val monixVersion = "2.3.0"
 val appSettings = Seq(
@@ -154,8 +151,8 @@ val appSettings = Seq(
       </license>
     </licenses>
     <scm>
-      <url>git@github.com:monix/monix.git</url>
-      <connection>scm:git:git@github.com:monix/monix.git</connection>
+      <url>git@github.com:monix/monix-nio.git</url>
+      <connection>scm:git:git@github.com:monix/monix-nio.git</connection>
     </scm>
     <developers>
       <developer>
@@ -164,7 +161,7 @@ val appSettings = Seq(
         <url>https://github.com/creyer</url>
       </developer>
       <developer>
-        <id>alex_ndc</id>
+        <id>alexelcu</id>
         <name>Alexandru Nedelcu</name>
         <url>https://alexn.org</url>
       </developer>
@@ -179,18 +176,29 @@ val appSettings = Seq(
 lazy val cmdlineProfile =
   sys.props.getOrElse("sbt.profile", default = "")
 
-def profile: Project ⇒ Project = pr => cmdlineProfile match {
-  case "coverage" => pr
-  case _ => pr.disablePlugins(scoverage.ScoverageSbtPlugin)
-}
+def profile(platform: String): Project ⇒ Project = pr =>
+  platform match {
+    case "jvm" =>
+      cmdlineProfile match {
+        case "coverage" => pr
+        case _ => pr.disablePlugins(scoverage.ScoverageSbtPlugin)
+      }
+    case _ =>
+      pr.disablePlugins(scoverage.ScoverageSbtPlugin)
+  }
 
-val formattingSettings = SbtScalariform.scalariformSettings ++ Seq(
-  ScalariformKeys.preferences := ScalariformKeys.preferences.value
-    .setPreference(PlaceScaladocAsterisksBeneathSecondAsterisk, true)
-)
+lazy val monixNio = project.in(file("."))
+  .aggregate(nioJVM, nioJS)
+  .settings(publish := {}, publishLocal := {})
 
-val monixNio = Project(id = "monix-nio", base = file("."))
+lazy val nio = crossProject.in(file("."))
+  .settings(name := "monix-nio")
   .settings(appSettings)
-  .settings(formattingSettings)
-  .configure(profile)
+  .jvmConfigure(profile("jvm"))
+  .jsConfigure(profile("js"))
+  .jsSettings(coverageExcludedFiles := ".*")
+
+lazy val nioJVM = nio.jvm
+lazy val nioJS = nio.js
+
 
